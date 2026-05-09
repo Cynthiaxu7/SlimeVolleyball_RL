@@ -1,0 +1,30 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented a controlled ablation study of deep RL on Slime Volleyball,
+covering Dueling DQN, Double DQN, $n$-step returns, prioritized replay,
+distributional C51, NoisyNet, and PPO with snapshot self-play and
+baseline-opponent mixing. The most interesting outcomes were not the
+``Rainbow works'' confirmation we initially aimed for, but the negative
+and surprising results: $n$-step returns are actively harmful without
+Double DQN's bias correction; pure-pool self-play loses generalization
+to a stylistically different scripted baseline; full Rainbow-with-C51
+catastrophically collapsed because $[v_{\min}, v_{\max}]$ was matched
+to the support of episode returns; and a fixed-baseline agent loses to
+a buggy-lineage ecosystem at $\sim 8{:}1$ odds in head-to-head play.
+The PPO rescue case study illustrates that a small, justified
+configuration cluster (entropy bonus $\times 10$, target-KL early stop,
+linear LR anneal, doubled rollout) can swing a failed run by $+3.6$
+reward without invoking any new algorithm.
+
+The broader methodological message is that, in deep RL, the choice
+of algorithm is increasingly intertwined with the structure of training
+data the algorithm generates for itself. Ablations that treat
+``component A'' and ``component B'' as additive marginal contributions
+miss destructive interactions ($n$-step $\times$ Double); evaluations
+that report performance against a single opponent miss ecosystem
+effects (\texttt{eval\_R} $\neq$ Elo); and self-play recipes that
+optimize for pool diversity miss the importance of opponent
+\emph{playstyle diversity}. We hope the dataset of trained checkpoints,
+the ladder benchmark, and the ONNX-exported browser playables make this
+a useful sandbox for the next iteration of this course.

@@ -1,0 +1,71 @@
+# =====================================================================
+# Slime Volleyball Deep RL Project — .gitignore
+# =====================================================================
+
+# ----- Model checkpoints (large binary artifacts) --------------------
+checkpoints/*.pt
+checkpoints/pool_*/
+
+# ----- Auto-generated replay data (large JSON, ~1-10 MB each) --------
+web/replays/*.json
+# Keep the index file so the demo loader knows what to look for
+!web/replays/index.json
+
+# ----- TensorBoard / training logs -----------------------------------
+logs/dqn_*/
+logs/ppo_*/
+logs/sbatch_*.out
+logs/sbatch_*.err
+logs/web_server.log
+logs/*.log
+logs/ladder_sim_*.json
+
+# ----- PyInstaller build outputs -------------------------------------
+dist/
+build/
+*.spec.bak
+
+# ----- Python bytecode / caches --------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ----- Virtual environments ------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# ----- OS / editor cruft ---------------------------------------------
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# ----- Jupyter -------------------------------------------------------
+.ipynb_checkpoints/
+
+# ----- LaTeX build artifacts (intermediate) --------------------------
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.nav
+*.snm
+*.vrb
+
+# ----- NFS lock files ------------------------------------------------
+.nfs*
+
+# ----- Local Claude Code session metadata ----------------------------
+CLAUDE.md
+.claude/

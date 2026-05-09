@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Slime Volleyball - Multi-Agent Arena</title>
+<link rel="stylesheet" href="style.css">
+<!-- WASM EP only: tiny MLP, no GPU upload overhead worth paying. -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.25.1/dist/ort.min.js"></script>
+</head>
+<body>
+<div id="app">
+  <h1>Slime Volleyball <span class="subtitle">Columbia Lions vs Cal Bears</span></h1>
+  <div id="hud">
+    <span id="lives">L: 5  vs  R: 5</span>
+    <span id="status"></span>
+    <span id="fps">FPS 0</span>
+  </div>
+  <canvas id="game" width="1200" height="500"></canvas>
+  <div id="fast-sim-placeholder" class="hidden">Background simulation in progress&hellip;</div>
+  <div id="banner"></div>
+
+  <div id="mode-bar">
+    <fieldset class="mode-field mode-toggle">
+      <legend>Mode</legend>
+      <label><input type="radio" name="mode" value="free" checked> Free play</label>
+      <label><input type="radio" name="mode" value="ladder"> Ladder</label>
+      <label><input type="radio" name="mode" value="replay"> Replay</label>
+    </fieldset>
+
+    <label class="mode-field slot-field">
+      <span>Left player</span>
+      <select id="left-select">
+        <option value="human">Human</option>
+        <option value="plain">Plain DQN</option>
+        <option value="dueling">Dueling</option>
+        <option value="duel_double">Duel+Double</option>
+        <option value="duel_nstep">Duel+Nstep</option>
+        <option value="v1">V1 cold</option>
+        <option value="v1_selfplay">V1 selfplay</option>
+        <option value="v1_purepool">V1 sp purepool</option>
+        <option value="v1_selfplay_seeded">V1 sp seeded</option>
+        <option value="v1_sp_fixed">V1 sp fixed</option>
+        <option value="ppo">PPO</option>
+        <option value="ppo_fixed">PPO fixed</option>
+        <option value="ppo_rescue">PPO rescue</option>
+        <option value="rainbow">Rainbow 20M sp</option>
+        <option value="rainbow_5m">Rainbow 5M</option>
+        <option value="rainbow_5m_sp">Rainbow 5M sp</option>
+        <option value="rainbow_sp_fixed">Rainbow sp fixed</option>
+        <option value="rainbow_full">Rainbow full (C51+Noisy)</option>
+        <option value="rainbow_eps">Rainbow C51 (no Noisy)</option>
+        <option value="baseline">Baseline</option>
+      </select>
+    </label>
+
+    <label class="mode-field slot-field">
+      <span>Right player</span>
+      <select id="right-select">
+        <option value="human">Human</option>
+        <option value="dueling" selected>Dueling</option>
+        <option value="v1">V1 cold</option>
+        <option value="v1_selfplay">V1 selfplay</option>
+        <option value="v1_selfplay_seeded">V1 sp seeded</option>
+        <option value="v1_sp_fixed">V1 sp fixed</option>
+        <option value="ppo">PPO</option>
+        <option value="ppo_fixed">PPO fixed</option>
+        <option value="ppo_rescue">PPO rescue</option>
+        <option value="rainbow">Rainbow 20M sp</option>
+        <option value="rainbow_5m">Rainbow 5M</option>
+        <option value="rainbow_5m_sp">Rainbow 5M sp</option>
+        <option value="rainbow_sp_fixed">Rainbow sp fixed</option>
+        <option value="rainbow_full">Rainbow full (C51+Noisy)</option>
+        <option value="rainbow_eps">Rainbow C51 (no Noisy)</option>
+        <option value="baseline">Baseline</option>
+      </select>
+    </label>
+
+    <fieldset class="mode-field qfor">
+      <legend>Show Q-values for</legend>
+      <label><input type="radio" name="qfor" value="left"> Left</label>
+      <label><input type="radio" name="qfor" value="right" checked> Right</label>
+    </fieldset>
+
+    <fieldset class="mode-field qmode">
+      <legend>Chart mode</legend>
+      <label><input type="radio" name="qmode" value="q" checked> Q</label>
+      <label><input type="radio" name="qmode" value="advantage"> Advantage</label>
+    </fieldset>
+
+    <label class="mode-field speed">
+      <span>Speed: <output id="speed-out">1.00x</output></span>
+      <input type="range" id="speed" min="0.5" max="10" step="0.25" value="1">
+    </label>
+
+    <button id="restart">Restart</button>
+  </div>
+
+  <canvas id="qchart" width="1200" height="150"></canvas>
+
+  <div id="ladder-panel" class="hidden">
+    <div id="ladder-controls">
+      <fieldset class="mode-field ladder-strategy">
+        <legend>Matchmaking</legend>
+        <label><input type="radio" name="strategy" value="random" checked> Random</label>
+        <label><input type="radio" name="strategy" value="closest"> Closest ELO</label>
+      </fieldset>
+      <button id="play-next">Play next match</button>
+      <button id="queue-me">Queue me</button>
+      <button id="auto-loop">Auto-loop: off</button>
+      <button id="fast-sim-100">Run 100 matches</button>
+      <button id="fast-sim-1000">Run 1000 matches</button>
+      <button id="fast-sim-stop" class="hidden">Stop</button>
+      <button id="reload-models">Reload models</button>
+      <span id="fast-sim-progress"></span>
+      <span id="ladder-status"></span>
+    </div>
+    <table id="ladder-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th>ELO</th>
+          <th>Games</th>
+          <th>W-D-L</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="replay-panel" class="hidden">
+    <div id="replay-controls">
+      <label class="replay-select-label">
+        <span>Replay</span>
+        <select id="replay-select">
+          <option value="">-- pick a replay --</option>
+        </select>
+      </label>
+      <button id="replay-play">Play</button>
+      <button id="replay-pause">Pause</button>
+      <button id="replay-restart">Restart</button>
+      <input type="range" id="replay-scrubber" min="0" max="100" value="0" step="1" />
+      <span id="replay-frame-info">frame 0 / 0</span>
+      <span id="replay-outcome"></span>
+    </div>
+  </div>
+
+  <div id="controls">
+    <p>
+      Left (P1): A / D move, W / Space jump &nbsp;|&nbsp;
+      Right (P2 when human): J / L move, I jump &nbsp;|&nbsp;
+      Q-values overlay: q &nbsp;|&nbsp;
+      Restart: r
+    </p>
+  </div>
+  <div id="loading">Loading default model...</div>
+</div>
+
+<!-- Load order matters: physics defines globals (incl. ACTION_TABLE), agent uses
+     ort, baseline reverses ACTION_TABLE, qchart is standalone, game wires everything. -->
+<script src="physics.js"></script>
+<script src="agent.js"></script>
+<script src="baseline.js"></script>
+<script src="qchart.js"></script>
+<script src="elo.js"></script>
+<script src="replay.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

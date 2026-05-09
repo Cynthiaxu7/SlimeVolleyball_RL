@@ -1,0 +1,69 @@
+\documentclass{article}
+\usepackage{iclr2024_conference}
+
+% Standard packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  citecolor=blue!50!black,
+  urlcolor=blue!60!black,
+}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{caption}
+
+% Listing style for the appendix code
+\lstdefinestyle{pyblock}{
+  basicstyle=\ttfamily\footnotesize,
+  language=Python,
+  keywordstyle=\color{blue!60!black}\bfseries,
+  commentstyle=\color{green!40!black}\itshape,
+  stringstyle=\color{red!50!black},
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=6pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!50},
+  xleftmargin=2em,
+  xrightmargin=0.5em,
+  belowskip=0.5em,
+  aboveskip=0.5em,
+}
+\lstset{style=pyblock}
+
+% Title
+\title{Deep Reinforcement Learning for Slime Volleyball:\\ A Rainbow + Self-Play Ablation Study}
+\author{Anonymous Authors\\ INDENG~242B, UC~Berkeley}
+\date{Spring 2026}
+
+\begin{document}
+
+\maketitle
+
+\input{sections/00_abstract}
+\input{sections/01_intro}
+\input{sections/02_problem}
+\input{sections/03_methods}
+\input{sections/04_results}
+\input{sections/05_safety}
+\input{sections/06_conclusion}
+
+\bibliography{bibliography}
+
+\appendix
+\input{sections/appendix}
+
+\end{document}

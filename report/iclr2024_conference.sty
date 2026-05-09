@@ -1,0 +1,112 @@
+% iclr2024_conference.sty
+% Minimal ICLR-2024-conference look-alike. Self-contained — no external font
+% packages beyond what comes with a standard texlive install. We do NOT claim
+% to ship the official ICLR style; this is a faithful re-implementation of the
+% formatting (single column, ~10pt, ~1in margins, sans-serif section headings,
+% no page numbers on body pages, two-column references) for a course report.
+%
+% Usage:
+%   \documentclass{article}
+%   \usepackage{iclr2024_conference}            % anonymous (default)
+%   \usepackage[final]{iclr2024_conference}     % camera-ready (no anon banner)
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{iclr2024_conference}[2024/01/15 ICLR 2024 conference style (course re-impl)]
+
+\newif\if@iclrfinal
+\@iclrfinalfalse
+\DeclareOption{final}{\@iclrfinaltrue}
+\DeclareOption*{\PackageWarning{iclr2024_conference}{Unknown option `\CurrentOption'}}
+\ProcessOptions\relax
+
+% --- page geometry: ICLR uses ~1in side margins, 1.25in top/bottom-ish ----
+\RequirePackage[letterpaper,
+                left=1in, right=1in,
+                top=1in, bottom=1in,
+                headheight=12pt, headsep=18pt,
+                footskip=24pt]{geometry}
+
+% --- font / size ---------------------------------------------------------
+% Article default 10pt is what ICLR uses; we leave \normalsize alone but tune
+% line spacing slightly for density.
+\renewcommand{\baselinestretch}{1.0}
+
+% Sans-serif section headings (Helvetica-like). We use the default cmss family
+% to avoid pulling in extra font packages.
+\RequirePackage{titlesec}
+\titleformat{\section}{\normalfont\sffamily\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\sffamily\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\sffamily\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+% Spacing around sections (ICLR is fairly tight).
+\titlespacing{\section}{0pt}{2.0ex plus 0.5ex minus 0.2ex}{1.0ex plus 0.2ex}
+\titlespacing{\subsection}{0pt}{1.5ex plus 0.5ex minus 0.2ex}{0.6ex plus 0.2ex}
+\titlespacing{\subsubsection}{0pt}{1.0ex plus 0.5ex minus 0.2ex}{0.4ex plus 0.2ex}
+
+% --- title block ---------------------------------------------------------
+% ICLR-style centered, sans-serif title; authors below in regular roman.
+\renewcommand{\maketitle}{%
+  \par
+  \begingroup
+    \centering
+    {\sffamily\bfseries\LARGE\@title \par}%
+    \vskip 1.2em%
+    {\large\@author \par}%
+    \vskip 0.6em%
+    {\@date \par}%
+  \endgroup
+  \par
+  \vskip 1.0em%
+  \if@iclrfinal\else
+    \begin{center}\small\textit{Course report --- under double-blind review at INDENG~242B (Berkeley, Spring 2026).}\end{center}
+  \fi
+  \vskip 0.5em
+}
+
+% --- abstract: ICLR's abstract is set in the same column, slightly indented
+% with bold "Abstract" label.
+\renewenvironment{abstract}{%
+  \begin{center}{\sffamily\bfseries Abstract}\end{center}%
+  \begin{quote}\small\noindent\ignorespaces
+}{%
+  \end{quote}\par\medskip
+}
+
+% --- no page numbers on body (ICLR convention) ---------------------------
+\pagestyle{empty}
+\thispagestyle{empty}
+\AtBeginDocument{\thispagestyle{empty}\pagestyle{empty}}
+
+% --- references in two columns ------------------------------------------
+% Wrap the bibliography in a multicols environment.
+\RequirePackage{multicol}
+\renewenvironment{thebibliography}[1]{%
+  \section*{\refname}%
+  \begin{multicols}{2}\small
+  \list{\@biblabel{\@arabic\c@enumiv}}%
+       {\settowidth\labelwidth{\@biblabel{#1}}%
+        \leftmargin\labelwidth
+        \advance\leftmargin\labelsep
+        \@openbib@code
+        \usecounter{enumiv}%
+        \let\p@enumiv\@empty
+        \renewcommand\theenumiv{\@arabic\c@enumiv}}%
+  \sloppy
+  \clubpenalty4000
+  \@clubpenalty \clubpenalty
+  \widowpenalty4000%
+  \sfcode`\.\@m}%
+{\def\@noitemerr
+  {\@latex@warning{Empty `thebibliography' environment}}%
+  \endlist\end{multicols}}
+
+% --- a couple of ICLR-isms ----------------------------------------------
+% ICLR uses square brackets for citations (numeric-style author-year).
+\RequirePackage[round,sort,comma,numbers]{natbib}
+\bibliographystyle{plainnat}
+
+% Tighter list spacing.
+\RequirePackage{enumitem}
+\setlist{itemsep=0.2em, topsep=0.3em}
+
+\endinput

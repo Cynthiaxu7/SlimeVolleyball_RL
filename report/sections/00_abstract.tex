@@ -1,0 +1,18 @@
+\begin{abstract}
+We present a comprehensive study of deep reinforcement learning on Slime
+Volleyball, a 12-dimensional, six-action competitive control task. Building on
+a Dueling DQN backbone, we incrementally compose the full Rainbow stack
+(Double DQN, n-step returns, prioritized replay, distributional C51, NoisyNet)
+and contrast it against a Proximal Policy Optimization (PPO) baseline trained
+with snapshot-based self-play and a scripted-baseline opponent mixer. Our
+ablations expose three results that are not common knowledge in undergraduate
+RL exposition: (i) n-step returns \emph{without} Double DQN are actively
+\emph{harmful} ($-1.6$ reward vs.\ a $+0.6$ gain when paired with Double); (ii)
+an entropy-collapsed PPO run can be rescued by a four-knob intervention
+(entropy bonus $10\times$, target-KL early-stop, linear LR anneal, doubled
+rollout) for a $+3.6$ reward swing; and (iii) an obscure environment-baseline
+bug created an entire ecosystem of co-evolved agents that beat a
+correctly-trained agent at $\sim$8:1 odds despite training in a strictly
+degraded setting. We argue that negative and surprising results are the most
+informative lens through which to teach deep RL methodology.
+\end{abstract}

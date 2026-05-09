@@ -1,0 +1,187 @@
+\section{Results}
+\label{sec:results}
+
+We evaluate on two complementary axes. \texttt{eval\_R} is the deterministic
+greedy reward per episode against the scripted baseline (5 episodes per
+checkpoint, $\in [-5, +5]$). Ladder \emph{Elo} is computed from a
+1500-match round-robin among 19 trained variants ($\times 2$ clones per
+variant for variance averaging, $K=32$, init $1500$); the scripted RNN
+baseline is included as a reference player.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/training_curves.pdf}
+\caption{Training curves (smoothed mean episode return) for five
+representative runs over wall-clock time. Self-play variants (V1-SP,
+Rainbow-Lite-SP) ramp slowly because the opponent distribution co-evolves
+with the agent; cold cells (plain DQN, Dueling+Double) plateau early
+against the fixed scripted baseline.}
+\label{fig:training-curves}
+\end{figure}
+
+\subsection{Component ablation: $2\times2\times2$ over Dueling, Double, $n$-step}
+
+Table~\ref{tab:ablation} summarizes the five-cell DQN ablation; bars in
+Figure~\ref{fig:ablation-bars} visualize the corresponding \texttt{eval\_R}.
+All cells share the trunk, target network, replay buffer, and training
+budget (5M transitions); the only differences are the indicated algorithmic
+switches.
+
+\begin{table}[h]
+\centering
+\caption{Component ablation. \texttt{eval\_R}~$\in[-5,+5]$ is the
+deterministic-greedy mean over 5 evaluation episodes. ``$\Delta$'' is
+versus the plain-DQN floor (cell A).}
+\label{tab:ablation}
+\small
+\begin{tabular}{cccccc}
+\toprule
+Cell & Dueling & Double & $n$-step & \texttt{eval\_R} & $\Delta$ \\
+\midrule
+A & --- & --- & 1 & $-0.6 \pm 0.5$ & (floor) \\
+B & yes & --- & 1 & $-0.4$ & $+0.2$ \\
+C & yes & yes & 1 & $\mathbf{+0.2 \pm 0.4}$ & $\mathbf{+0.8}$ \\
+D & yes & --- & 3 & $-2.2 \pm 1.2$ & $-1.6$ \\
+E & yes & yes & 3 & $-0.4$ & $+0.2$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.78\linewidth]{figures/ablation_bars.pdf}
+\caption{\texttt{eval\_R} per ablation cell. The two cells without Double
+(A, B, D) cluster below zero; adding Double (C, E) lifts both $n=1$ and
+$n=3$ above the floor by $\sim$1 reward unit.}
+\label{fig:ablation-bars}
+\end{figure}
+
+Five findings stand out.
+
+\textbf{(F1) Dueling alone barely helps.} Cell A $\to$ B is only $+0.2$
+\texttt{eval\_R}. On a 12-dim observation the value/advantage decomposition
+of \citet{wang2016dueling} provides marginal gain --- there are few states
+where ``the action does not matter,'' which is exactly the structural
+signal Dueling exploits.
+
+\textbf{(F2) Double DQN is the single biggest win.} Cell B $\to$ C
+is $+0.6$ \texttt{eval\_R}, the largest delta from a single component
+in the matrix. With a small / noisy Q-net, $\max_a Q_{\theta^-}(s', a)$ is
+a positively biased estimator of the optimal next-state value, and the
+Double decoupling
+$Q_{\theta^-}(s', \arg\max_{a'} Q_\theta(s', a'))$ \citep{vanhasselt2016double}
+removes most of that bias.
+
+\textbf{(F3) $n$-step \emph{without} Double is actively harmful.} Cell B
+$\to$ D is $-1.8$ \texttt{eval\_R}. Each additional step in the $n$-step
+sum injects further off-policy bootstrap noise; with only $\max$
+selecting and evaluating the lookup, the over-estimation bias compounds
+across the horizon. Re-introducing Double on top of $n$-step (cell D
+$\to$ E: $+1.8$) almost fully restores the deficit. This is a destructive
+\emph{interaction}, not a sum of marginal effects --- a fact obscured in
+the original Rainbow paper~\citep{hessel2018rainbow} which only ablates
+\emph{removing} components from the full stack.
+
+\textbf{(F4) $n$-step + Double $\approx$ $n=1$ + Double on this task}
+(cells C and E within noise). The practical takeaway: if only one upgrade
+over plain DQN is affordable, add Double; $n$-step is a multiplier on
+Double, not a standalone improvement.
+
+\subsection{Self-play opponent mixing}
+
+Table~\ref{tab:selfplay} summarizes the three self-play runs at 20M
+timesteps. Setting $p_{\text{base}} = 0$ (\texttt{purepool}) collapsed
+generalization to the baseline: \texttt{base\_R} dropped to $-1.2 \pm 0.7$
+and ladder Elo fell to $1454$ ---~225 below $p_{\text{base}}{=}0.4$ ---
+despite seeding the pool with the strongest available checkpoint.
+
+\begin{table}[h]
+\centering
+\caption{Self-play baseline-mixing ablation, V1 trainer (20M each).}
+\label{tab:selfplay}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Variant & $p_{\text{base}}$ & Pool seed & \texttt{base\_R} & Elo \\
+\midrule
+\texttt{v1\_sp\_fixed} & 0.4 & clean ckpts & $\mathbf{+0.4 \pm 0.8}$ & 1679 \\
+\texttt{v1\_selfplay\_seeded} (legacy) & 0.4 & + buggy ckpts & --- & 1824 \\
+\texttt{v1\_sp\_purepool} & \textbf{0.0} & + ladder-king & $-1.2 \pm 0.7$ & 1454 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The baseline plays an RNN-style reflex game the snapshot pool cannot
+proxy: pool diversity and pool quality are not the same axis.
+
+\subsection{PPO entropy collapse and rescue}
+
+Figure~\ref{fig:ppo-entropy} contrasts the policy entropy
+$\mathcal{H}[\pi_\theta]$ trajectory of the failed PPO run
+(\texttt{ppo\_lowent\_20m\_fixed}) with the rescue run. The failed run
+collapses from $\mathcal{H} \approx \log 6 \approx 1.79$ to $0.108$ by step
+$1.4\text{M}$ --- a 16$\times$ drop --- after which the policy is too
+deterministic to escape its local optimum. The rescue intervention (10$\times$
+entropy bonus, 2$\times$ rollout, linear LR anneal, target-KL early stop)
+keeps the entropy at $\mathcal{H} = 1.42$ throughout and lifts
+\texttt{base\_R} from $-3.4 \pm 1.5$ to $+0.2 \pm 0.4$, a $+3.6$ swing.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/ppo_entropy.pdf}
+\caption{Policy entropy $\mathcal{H}[\pi]$ vs.\ environment step for the
+failed PPO run (red, collapses to 0.108) and the rescue run (blue,
+stabilizes near 1.42). Maximum entropy for 6 actions is $\log 6 \approx
+1.79$.}
+\label{fig:ppo-entropy}
+\end{figure}
+
+\subsection{Ladder Elo and \texttt{eval\_R} disagreement}
+
+Figure~\ref{fig:elo-ladder} shows the ladder ranking for all 19 variants.
+The headline observations:
+
+\begin{itemize}
+\item \textbf{Self-play vs.\ cold (same algorithm) is the largest single
+gain in the project.} \texttt{v1\_selfplay} (Elo $1795$) vs.\ \texttt{v1}
+cold (Elo $1282$) is a $513$-Elo gap, $\sim$94\% expected-win.
+\item \textbf{The scripted RNN baseline ranks 6th of 19.} Only the top
+five trained variants reliably beat it.
+\item \textbf{Full Rainbow with C51 + NoisyNet collapsed.} Both
+\texttt{rainbow\_full} (Elo $1084$) and \texttt{rainbow\_eps} ($1071$) lose
+$95\%+$ of ladder matches. Diagnosis: the C51 support
+$[v_{\min}, v_{\max}] = [-5, +5]$ matches episode-return extremes
+exactly, so probability mass concentrates on the boundary atoms and
+expected-$Q$ values become nearly degenerate. A retrain with $[-10, +10]$
+support is the predicted fix; the simpler ``Rainbow-Lite''
+(Dueling + Double + $n$-step + PER) reaches Elo $1690$ on the same
+budget.
+\item \textbf{\texttt{eval\_R} can disagree with ladder Elo.}
+\texttt{plain} DQN (Elo $1520$) outranks \texttt{dueling} ($1453$)
+despite a worse \texttt{eval\_R} ($-0.6$ vs.\ $-0.4$), and \texttt{ppo\_fixed}
+(failed; Elo $1540$) outranks \texttt{ppo\_rescue} (Elo $1497$) despite a
+$+3.6$ \texttt{base\_R} advantage. \texttt{eval\_R} measures
+\emph{performance against one specific opponent} (the scripted baseline);
+Elo measures \emph{average performance against the entire ecosystem}.
+A policy that hyper-specializes on the baseline can lose to other
+trained agents that play differently.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/elo_ladder.pdf}
+\caption{Round-robin Elo ranking, 1500 matches over 19 variants. The
+scripted baseline (highlighted) ranks 6th. The Rainbow-with-C51 variants
+(bottom) collapsed; see text.}
+\label{fig:elo-ladder}
+\end{figure}
+
+\paragraph{Negative results are scientifically valuable.} Of five
+hypotheses we expected to confirm --- ``Rainbow always helps,''
+``$n$-step is a free win,'' ``self-play $>$ cold,'' ``pool quality $>$
+baseline quality,'' and ``\texttt{eval\_R} predicts Elo'' --- only one
+(\emph{self-play $>$ cold}) survived contact with the data. The
+resulting redesigns (Double DQN as a prerequisite for $n$-step,
+baseline mixing as a prerequisite for self-play, ladder evaluation as
+a complement to single-opponent reward) are the most useful
+methodological output of this study.

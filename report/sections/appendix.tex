@@ -1,0 +1,149 @@
+\section{Appendix: Key Code Excerpts}
+\label{sec:appendix}
+
+This appendix reproduces the load-bearing code from
+\texttt{train/train\_dqn\_v1\_vec.py} (Dueling forward, Double-DQN target,
+the \texttt{--no-double} ablation switch) and from
+\texttt{train/train\_ppo\_selfplay\_vec.py} (PPO target-KL early-stop). All
+excerpts are verbatim modulo whitespace; line numbers refer to the source
+files at the time of submission.
+
+\subsection*{A. Dueling MLP forward (\texttt{train\_dqn\_v1\_vec.py}, lines 70--91)}
+
+\begin{lstlisting}
+class DuelingMLPv1(nn.Module):
+    """Dueling MLP: trunk 12->128->128, value head 128->64->1,
+    advantage head 128->64->6, Q = V + (A - mean A)."""
+
+    def __init__(self, obs_dim: int = 12, n_actions: int = 6) -> None:
+        super().__init__()
+        self.trunk = nn.Sequential(
+            nn.Linear(obs_dim, 128), nn.ReLU(),
+            nn.Linear(128, 128), nn.ReLU(),
+        )
+        self.value_head = nn.Sequential(
+            nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 1),
+        )
+        self.advantage_head = nn.Sequential(
+            nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, n_actions),
+        )
+
+    def forward(self, obs: torch.Tensor) -> torch.Tensor:
+        features = self.trunk(obs)
+        value = self.value_head(features)
+        advantage = self.advantage_head(features)
+        return value + (advantage - advantage.mean(dim=-1, keepdim=True))
+\end{lstlisting}
+
+\subsection*{B. Double DQN target with \texttt{--no-double} ablation switch
+(\texttt{train\_dqn\_v1\_vec.py}, lines 508--534)}
+
+\begin{lstlisting}
+with torch.no_grad():
+    if args.no_double:
+        # Vanilla DQN target: max over target net's outputs.
+        next_q = target(batch.next_obs).max(dim=-1).values
+    else:
+        # Double DQN: action SELECTION via online, EVAL via target.
+        next_q_online = online(batch.next_obs)
+        next_actions = next_q_online.argmax(dim=-1, keepdim=True)
+        next_q_target_all = target(batch.next_obs)
+        next_q = next_q_target_all.gather(1, next_actions).squeeze(1)
+
+    # n-step discount: gamma^{n_actual_i} per sample (n_actual=n on full
+    # windows, < n on episode-truncated windows).
+    discount = torch.pow(
+        torch.full_like(batch.rewards, gamma),
+        batch.n_actual.to(batch.rewards.dtype),
+    )
+    td_target = batch.rewards + discount * next_q * (1.0 - batch.dones)
+
+q_all  = online(batch.obs)
+q_pred = q_all.gather(1, batch.actions.unsqueeze(1)).squeeze(1)
+loss   = F.smooth_l1_loss(q_pred, td_target)   # Huber
+
+optimizer.zero_grad(set_to_none=True)
+loss.backward()
+nn.utils.clip_grad_norm_(online.parameters(), max_norm=grad_clip_norm)
+optimizer.step()
+
+soft_update(target, online, soft_tau)            # tau = 5e-3
+\end{lstlisting}
+
+\subsection*{C. PPO target-KL early stop (\texttt{train\_ppo\_selfplay\_vec.py}, lines 589--675)}
+
+\begin{lstlisting}
+target_kl = args.target_kl if args.target_kl is not None else None
+early_stopped_epoch = None
+for _epoch in range(int(args.update_epochs)):
+    np.random.shuffle(indices)
+    # Per-epoch KL accumulator. We decide AT THE END of an epoch
+    # (CleanRL convention) whether to skip the remaining epochs --
+    # checking inside the minibatch loop is too noisy for small mb.
+    epoch_kls = []
+    for start in range(0, total, mb):
+        end = min(start + mb, total)
+        mb_idx = torch.from_numpy(indices[start:end]).to(obs_all.device)
+
+        new_logits, new_values = model.forward_train(obs_all[mb_idx])
+        dist = Categorical(logits=new_logits)
+        new_log_probs = dist.log_prob(actions_all[mb_idx])
+        entropy = dist.entropy().mean()
+
+        log_ratio = new_log_probs - old_log_probs_all[mb_idx]
+        ratio     = torch.exp(log_ratio)
+
+        # PPO clipped surrogate
+        unclipped   = ratio * mb_advantages
+        clipped     = torch.clamp(ratio, 1.0 - clip_eps, 1.0 + clip_eps) * mb_advantages
+        policy_loss = -torch.min(unclipped, clipped).mean()
+
+        # PPO2 clipped value loss + entropy bonus
+        value_loss = clipped_value_loss(new_values, mb_returns,
+                                        old_values_all[mb_idx], clip_eps)
+        loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
+
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+        optimizer.step()
+
+        with torch.no_grad():
+            approx_kl = ((ratio - 1.0) - log_ratio).mean()
+        epoch_kls.append(float(approx_kl.item()))
+
+    # Early-stop the remaining update epochs if KL overshoots.
+    if target_kl is not None and epoch_kls:
+        mean_kl = float(np.mean(epoch_kls))
+        if mean_kl > target_kl:
+            early_stopped_epoch = _epoch + 1
+            break
+\end{lstlisting}
+
+\subsection*{D. Reproduction commands}
+
+The complete experimental matrix can be reproduced with the SLURM scripts
+in \texttt{scripts/}; an A6000 trains a 5M cold cell in $\sim$30~minutes
+and a 20M self-play cell in $\sim$5~hours.
+
+\begin{lstlisting}[language=bash]
+# 5M ablation cells (cells A, C, D in Table 2; cells B, E reuse v0/v1 cold)
+sbatch scripts/sbatch_plain_dqn_5m.slurm
+sbatch scripts/sbatch_dueling_double_5m.slurm
+sbatch scripts/sbatch_dueling_nstep_5m.slurm
+
+# 20M self-play cells
+sbatch scripts/sbatch_v1_vec_selfplay_fixed.slurm
+sbatch scripts/sbatch_v1_vec_selfplay_purepool.slurm
+
+# PPO rescue
+sbatch scripts/sbatch_ppo_rescue_20m.slurm
+
+# 1500-match Elo ladder
+python scripts/ladder_sim.py --n-matches 1500 --output auto
+
+# Head-to-head (Section 5b)
+python scripts/head2head.py \
+    --a web/model_v1_selfplay_fixed.onnx \
+    --b web/model_v1_selfplay.onnx --n 200
+\end{lstlisting}

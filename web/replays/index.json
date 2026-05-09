@@ -1,0 +1,180 @@
+{
+  "replays": [
+    {
+      "file": "baseline_vs_v1_sp_fixed_seed42.json",
+      "left": "v1_sp_fixed",
+      "right": "baseline",
+      "outcome": "right wins 4-5 (2999 steps)",
+      "steps": 2999,
+      "winner": "right",
+      "left_lives": 4,
+      "right_lives": 5,
+      "seed": 42
+    },
+    {
+      "file": "baseline_vs_v1_sp_fixed_seed43.json",
+      "left": "v1_sp_fixed",
+      "right": "baseline",
+      "outcome": "right wins 2-4 (2999 steps)",
+      "steps": 2999,
+      "winner": "right",
+      "left_lives": 2,
+      "right_lives": 4,
+      "seed": 43
+    },
+    {
+      "file": "baseline_vs_ppo_rescue_seed1042.json",
+      "left": "ppo_rescue",
+      "right": "baseline",
+      "outcome": "draw wins 5-5 (2999 steps)",
+      "steps": 2999,
+      "winner": "draw",
+      "left_lives": 5,
+      "right_lives": 5,
+      "seed": 1042
+    },
+    {
+      "file": "baseline_vs_ppo_rescue_seed1043.json",
+      "left": "ppo_rescue",
+      "right": "baseline",
+      "outcome": "draw wins 5-5 (2999 steps)",
+      "steps": 2999,
+      "winner": "draw",
+      "left_lives": 5,
+      "right_lives": 5,
+      "seed": 1043
+    },
+    {
+      "file": "baseline_vs_rainbow_sp_fixed_seed2042.json",
+      "left": "rainbow_sp_fixed",
+      "right": "baseline",
+      "outcome": "right wins 4-5 (2999 steps)",
+      "steps": 2999,
+      "winner": "right",
+      "left_lives": 4,
+      "right_lives": 5,
+      "seed": 2042
+    },
+    {
+      "file": "baseline_vs_rainbow_sp_fixed_seed2043.json",
+      "left": "rainbow_sp_fixed",
+      "right": "baseline",
+      "outcome": "draw wins 4-4 (2999 steps)",
+      "steps": 2999,
+      "winner": "draw",
+      "left_lives": 4,
+      "right_lives": 4,
+      "seed": 2043
+    },
+    {
+      "file": "ppo_rescue_vs_v1_sp_fixed_seed3042.json",
+      "left": "v1_sp_fixed",
+      "right": "ppo_rescue",
+      "outcome": "draw wins 5-5 (2999 steps)",
+      "steps": 2999,
+      "winner": "draw",
+      "left_lives": 5,
+      "right_lives": 5,
+      "seed": 3042
+    },
+    {
+      "file": "ppo_rescue_vs_v1_sp_fixed_seed3043.json",
+      "left": "v1_sp_fixed",
+      "right": "ppo_rescue",
+      "outcome": "left wins 5-4 (2999 steps)",
+      "steps": 2999,
+      "winner": "left",
+      "left_lives": 5,
+      "right_lives": 4,
+      "seed": 3043
+    },
+    {
+      "file": "rainbow_sp_fixed_vs_v1_sp_fixed_seed4042.json",
+      "left": "v1_sp_fixed",
+      "right": "rainbow_sp_fixed",
+      "outcome": "left wins 4-2 (2999 steps)",
+      "steps": 2999,
+      "winner": "left",
+      "left_lives": 4,
+      "right_lives": 2,
+      "seed": 4042
+    },
+    {
+      "file": "rainbow_sp_fixed_vs_v1_sp_fixed_seed4043.json",
+      "left": "v1_sp_fixed",
+      "right": "rainbow_sp_fixed",
+      "outcome": "left wins 5-3 (2999 steps)",
+      "steps": 2999,
+      "winner": "left",
+      "left_lives": 5,
+      "right_lives": 3,
+      "seed": 4043
+    },
+    {
+      "file": "rainbow_sp_fixed_vs_ppo_rescue_seed5042.json",
+      "left": "ppo_rescue",
+      "right": "rainbow_sp_fixed",
+      "outcome": "right wins 0-4 (2540 steps)",
+      "steps": 2540,
+      "winner": "right",
+      "left_lives": 0,
+      "right_lives": 4,
+      "seed": 5042
+    },
+    {
+      "file": "rainbow_sp_fixed_vs_ppo_rescue_seed5043.json",
+      "left": "ppo_rescue",
+      "right": "rainbow_sp_fixed",
+      "outcome": "right wins 0-5 (2909 steps)",
+      "steps": 2909,
+      "winner": "right",
+      "left_lives": 0,
+      "right_lives": 5,
+      "seed": 5043
+    },
+    {
+      "file": "v1_selfplay_vs_v1_sp_fixed_seed6042.json",
+      "left": "v1_sp_fixed",
+      "right": "v1_selfplay",
+      "outcome": "right wins 4-5 (2999 steps)",
+      "steps": 2999,
+      "winner": "right",
+      "left_lives": 4,
+      "right_lives": 5,
+      "seed": 6042
+    },
+    {
+      "file": "v1_selfplay_vs_v1_sp_fixed_seed6043.json",
+      "left": "v1_sp_fixed",
+      "right": "v1_selfplay",
+      "outcome": "left wins 5-4 (2999 steps)",
+      "steps": 2999,
+      "winner": "left",
+      "left_lives": 5,
+      "right_lives": 4,
+      "seed": 6043
+    },
+    {
+      "file": "ppo_vs_ppo_rescue_seed7042.json",
+      "left": "ppo_rescue",
+      "right": "ppo",
+      "outcome": "draw wins 5-5 (2999 steps)",
+      "steps": 2999,
+      "winner": "draw",
+      "left_lives": 5,
+      "right_lives": 5,
+      "seed": 7042
+    },
+    {
+      "file": "ppo_vs_ppo_rescue_seed7043.json",
+      "left": "ppo_rescue",
+      "right": "ppo",
+      "outcome": "draw wins 5-5 (2999 steps)",
+      "steps": 2999,
+      "winner": "draw",
+      "left_lives": 5,
+      "right_lives": 5,
+      "seed": 7043
+    }
+  ]
+}
