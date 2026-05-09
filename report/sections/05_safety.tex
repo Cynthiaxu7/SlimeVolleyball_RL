@@ -1,69 +1,40 @@
 \section{Safety, Robustness, and Ecosystem Effects}
 \label{sec:safety}
 
-Even on a toy game, our results expose three failure modes that scale
-unfavorably to higher-stakes RL deployments.
+Three failure modes from this toy game scale unfavorably to higher-stakes
+RL deployments.
 
-\paragraph{(a) Adversarial overspecialization in self-play.}
-Self-play agents trained against a small pool tend to learn
-\emph{opponent-specific exploits} rather than generally robust
-strategies. Pure-pool agents (e.g.\ \texttt{v1\_purepool}, Elo $1454$)
-play strongly against neural-net opponents and weakly against the
-scripted baseline; baseline-mixed agents (\texttt{v1\_sp\_fixed}, Elo
-$1679$) are more general-purpose but trade off peak-vs-pool
-performance. In a production self-play system (e.g.\ a recommendation
-simulator with synthetic users), the same effect predicts that an
-agent measured only against its training distribution will look
-stronger than it is.
+\textbf{(a) Adversarial overspecialization.} Self-play agents trained
+against a small pool learn opponent-specific exploits rather than
+generally robust strategies. Pure-pool agents play strongly against
+neural-net opponents and weakly against the scripted baseline;
+baseline-mixed agents are more general-purpose but trade off peak-vs-pool
+performance.
 
-\paragraph{(b) Ecosystem effect: a fixed agent loses to a buggy
-ecosystem.}
-The most cautionary finding from this project is the head-to-head
-between \texttt{v1\_sp\_fixed} (the correctly-trained agent) and
-\texttt{v1\_selfplay} (the buggy ladder king). Across 200 matches with
-side-alternation:
+\textbf{(b) Ecosystem effect.} The most cautionary finding is the
+head-to-head between \texttt{v1\_sp\_fixed} (correctly-trained) and
+\texttt{v1\_selfplay} (buggy ladder king). Across 200 matches with
+side-alternation: buggy lineage 71 wins (35.5\%), fixed lineage 9 wins
+(4.5\%), 120 time-cap draws (60\%) --- the buggy lineage wins
+$\sim 7.9\times$ more often \emph{despite} a strictly degraded training
+environment (a $\times 10$ obs-scale bug saturated the in-pool baseline's
+tanh layer). The buggy lineage co-evolved against itself, so playstyles
+encode mutual counters; the fixed agent, trained against the
+\emph{real} baseline, behaves differently and is exploitable. A shared
+training quirk becomes the local lingua franca, and a corrected
+replacement model can underperform until the ecosystem
+re-equilibrates --- relevant for autonomous driving fleets,
+recommendation, and multi-agent market makers.
 
-\begin{center}
-\small
-\begin{tabular}{lcc}
-\toprule
-Outcome & Count & \% \\
-\midrule
-Buggy lineage wins  & 71 & 35.5\,\% \\
-Fixed lineage wins  & 9  & \phantom{0}4.5\,\% \\
-Time-cap draws (5--5) & 120 & 60.0\,\% \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-The buggy lineage wins $\sim 7.9\times$ more often \emph{despite}
-training in a strictly degraded environment (a $\times 10$ obs-scale
-bug saturated the in-pool baseline's tanh layer). The mechanism: the
-buggy lineage co-evolved against itself, so playstyles encode mutual
-counters; the fixed agent, trained against the \emph{real} baseline,
-behaves differently and is exploitable. This \textbf{ecosystem effect}
-is relevant to any ML rollout: a shared training quirk becomes the
-local lingua franca, and a corrected replacement model can
-underperform until the ecosystem re-equilibrates --- relevant for
-autonomous driving fleets, recommendation, and multi-agent market
-makers, where unilateral upgrades can locally regress even when
-provably more correct in isolation.
-
-\paragraph{(c) Reward hacking in higher-stakes domains.}
-Slime Volleyball has a clean, sparse, fully-observed reward that should
-be hard to game. PPO reward-hacked it nonetheless via entropy collapse:
-\texttt{pool\_R}~$\approx +1$ (winning against self-snapshots) while
-\texttt{base\_R}~$=-3.4$ throughout. Translated to robotics this is the
-``walking-backward-in-circles'' local optimum; translated to resource
-scheduling, it is the RL scheduler trading long-term throughput for
-short-term variance reduction. Our diagnostic workflow (entropy, KL,
+\textbf{(c) Reward hacking.} PPO reward-hacked a clean, sparse,
+fully-observed reward via entropy collapse: \texttt{pool\_R}$\approx +1$
+while \texttt{base\_R}$=-3.4$. The diagnostic workflow (entropy, KL,
 clip-fraction monitoring with entropy-bonus and KL early-stop
 intervention) is the production-realistic mitigation.
 
-\paragraph{Deployment hygiene.} Three concrete checks before
-promoting any self-play-trained policy: (i) evaluate against
-\emph{multiple} held-out opponent distributions; (ii) rerun
-head-to-head against the previous deployed version, since a corrected
-replacement may locally regress; (iii) monitor policy entropy and KL
-between consecutive snapshots as health metrics, not diagnostic
-curiosities.
+\textbf{Deployment hygiene.} Three checks before promoting any
+self-play-trained policy: (i) evaluate against \emph{multiple} held-out
+opponent distributions; (ii) rerun head-to-head against the previously
+deployed version, since a corrected replacement may locally regress;
+(iii) monitor policy entropy and KL between consecutive snapshots as
+health metrics, not curiosities.

@@ -1,176 +1,63 @@
 \section{Methods}
 \label{sec:methods}
 
-\subsection{Architectures}
+\paragraph{Architectures.} All DQN variants share a 12{-}128{-}128
+ReLU trunk and a Dueling head~\citep{wang2016dueling}: value
+$V_\phi:\mathbb{R}^{128}\!\to\!\mathbb{R}^{64}\!\to\!\mathbb{R}$ and
+advantage
+$A_\phi:\mathbb{R}^{128}\!\to\!\mathbb{R}^{64}\!\to\!\mathbb{R}^6$,
+combined as $Q_\theta(s,a)=V_\phi(s)+\bigl(A_\phi(s,a)-\tfrac{1}{|\mathcal A|}\sum_{a'}A_\phi(s,a')\bigr)$
+($\approx 28$k params). The plain-DQN cell (\texttt{--no-dueling})
+collapses both heads into a $128{\to}64{\to}6$ MLP. PPO uses a Tanh
+trunk with orthogonal init, an actor head producing logits
+$\ell\in\mathbb{R}^6$ (final std $0.01$), and a scalar critic head.
 
-\paragraph{Dueling MLP (DQN family).}
-All DQN variants share a 12{-}128{-}128 ReLU trunk and a Dueling
-head~\citep{wang2016dueling}. The trunk's 128-dim feature is fed into a
-value head $V_\phi : \mathbb{R}^{128} \to \mathbb{R}^{64} \to \mathbb{R}$
-and an advantage head
-$A_\phi : \mathbb{R}^{128} \to \mathbb{R}^{64} \to \mathbb{R}^6$.
-Following the standard mean-subtraction reparameterization,
+\paragraph{Losses.} With $n$-step return
+$R_t^{(n)}=\sum_{k=0}^{n-1}\gamma^k r_{t+k}$, the Double
+DQN~\citep{vanhasselt2016double} target
 \begin{equation}
-Q_\theta(s, a) \;=\; V_\phi(s) \;+\; \Big( A_\phi(s, a) - \tfrac{1}{|\mathcal{A}|}\sum_{a'} A_\phi(s, a') \Big),
-\label{eq:dueling}
-\end{equation}
-which keeps $V$ and $A$ identifiable up to constant shift. The total
-parameter count is $\approx 28\text{k}$, intentionally small so that overfitting
-to opponent-specific quirks is harder. The plain DQN ablation cell
-(\texttt{--no-dueling}) replaces the dual head with a single
-$128 \to 64 \to 6$ MLP at the same parameter scale.
-
-\paragraph{Actor--critic MLP (PPO).}
-PPO uses a Tanh trunk
-$\mathbb{R}^{12} \to \mathbb{R}^{128} \to \mathbb{R}^{128}$ with
-orthogonal initialization
-(std $= \sqrt{2}$), then splits into an actor head producing logits
-$\ell \in \mathbb{R}^6$ (final layer initialized with std $= 0.01$ so
-the initial policy is near-uniform) and a critic head producing a
-scalar value $V_\psi(s) \in \mathbb{R}$ (final layer std $= 1.0$). The
-ONNX-facing forward returns logits only --- since
-$\arg\max_a \mathrm{softmax}(\ell)_a = \arg\max_a \ell_a$, the JS
-frontend's \texttt{argmax} contract works without a softmax layer.
-
-\subsection{Losses and Optimization}
-
-\paragraph{DQN loss.} For a sampled minibatch, with $n$-step return
-$R_t^{(n)} = \sum_{k=0}^{n-1} \gamma^k r_{t+k}$, the target uses the
-Double DQN~\citep{vanhasselt2016double} decoupling
-\begin{equation}
-y_t = R_t^{(n)} + (1 - d_t)\, \gamma^{n_{\text{actual}}}\,
-       Q_{\theta^-}\bigl(s_{t+n},\; \arg\max_{a'} Q_\theta(s_{t+n}, a')\bigr),
+y_t = R_t^{(n)} + (1-d_t)\,\gamma^{n_{\text{actual}}}\,
+  Q_{\theta^-}\!\bigl(s_{t+n},\arg\max_{a'} Q_\theta(s_{t+n},a')\bigr)
 \label{eq:double-target}
 \end{equation}
-and the Huber (smooth $L_1$) loss
-$\mathcal{L}_{\mathrm{DQN}}(\theta) = \mathbb{E}_{(s,a,y)}[\,\mathrm{Huber}(Q_\theta(s,a) - y)\,]$.
-The \texttt{--no-double} ablation switch replaces $\arg\max$ over
-online with $\max$ over the target, recovering vanilla DQN's
-positively-biased target. Prioritized Experience
-Replay~\citep{schaul2016per} is a drop-in change to the buffer and
-adds an importance-sampling weight $w_i \propto (1/p_i)^\beta$ to the
-per-sample loss, with $\beta$ annealed $0.4 \to 1.0$.
-
-\paragraph{Distributional C51 head.}
-The C51~\citep{bellemare2017c51} variants replace the per-action scalar
-$Q$ with a categorical distribution over 51 atoms in $[v_{\min}, v_{\max}]$,
-optimized with cross-entropy against the projected Bellman target. Expected
-$Q$ is recovered as $\sum_i p_i z_i$ inside \texttt{forward} so the ONNX
-contract stays $(B, 6)$.
-
-\paragraph{PPO loss.} Standard clipped
-surrogate~\citep{schulman2017ppo} with
-GAE-$\lambda$~\citep{schulman2016gae} advantages:
+is plugged into a Huber loss; \texttt{--no-double} reverts to
+$\max_{a'}Q_{\theta^-}$ (vanilla DQN's positively-biased target). PER
+\citep{schaul2016per} adds an importance weight
+$w_i\propto(1/p_i)^\beta$, $\beta:0.4{\to}1.0$. C51~\citep{bellemare2017c51}
+replaces $Q$ with a 51-atom categorical over $[v_{\min},v_{\max}]$ and
+recovers expected $Q=\sum_i p_i z_i$ inside \texttt{forward} so the
+ONNX contract stays $(B,6)$. PPO uses the standard clipped
+surrogate~\citep{schulman2017ppo} with GAE-$\lambda$
+\citep{schulman2016gae}:
 \begin{equation}
-\mathcal{L}_{\mathrm{PPO}} = -\,\mathbb{E}_t\!\Big[ \min\bigl( r_t(\theta)\,\hat A_t,\; \mathrm{clip}(r_t(\theta), 1{-}\epsilon, 1{+}\epsilon)\,\hat A_t \bigr) \Big]
-+ c_v \mathcal{L}_V - c_e \mathcal{H}[\pi_\theta],
+\mathcal{L}_{\mathrm{PPO}} = -\mathbb{E}_t\!\bigl[\min(r_t\hat A_t,\,\mathrm{clip}(r_t,1{-}\epsilon,1{+}\epsilon)\hat A_t)\bigr] + c_v\mathcal{L}_V - c_e\mathcal{H}[\pi_\theta].
 \label{eq:ppo}
 \end{equation}
-where $r_t(\theta) = \pi_\theta(a_t|s_t) / \pi_{\theta_{\text{old}}}(a_t|s_t)$,
-$\mathcal{L}_V$ is a PPO2-style \emph{clipped} value MSE, and
-$\mathcal{H}[\pi_\theta]$ is the per-state action entropy.
 
-\paragraph{Optimizer and regularization.}
-All variants use Adam (lr in Table~\ref{tab:hp}). DQN regularization is
-(a) a soft Polyak target update
-$\theta^- \leftarrow (1-\tau)\theta^- + \tau\theta$ with
-$\tau = 5\!\times\!10^{-3}$ every gradient step, and (b)
-gradient-norm clipping at 10. PPO regularization stacks
-(a) entropy bonus $c_e$, (b) per-minibatch advantage normalization,
-(c) gradient-norm clip at $0.5$, and (d) target-KL early-stop: if the
-running mean of $\widehat{\mathrm{KL}}_t = (r_t-1) - \log r_t$ within a
-PPO epoch exceeds $\delta_{\mathrm{KL}} = 0.02$, remaining update epochs
-are skipped --- this turned out to be the single most important add to
-prevent entropy collapse on this task.
+\paragraph{Optimization.} Adam; DQN uses Polyak target update
+($\tau{=}5{\times}10^{-3}$) and grad-norm clip 10. PPO stacks an
+entropy bonus $c_e$, advantage normalization, grad clip 0.5, and a
+target-KL early-stop ($\delta_{\mathrm{KL}}{=}0.02$): if
+$\widehat{\mathrm{KL}}_t=(r_t-1)-\log r_t$ exceeds the threshold during
+an epoch, remaining update epochs are skipped. Full per-algorithm
+hyperparameters in Appendix~\ref{app:hp}.
 
-\subsection{Beyond-class-material methodology}
-
-The course rubric requires highlighting at least one technique beyond
-standard syllabus material. We highlight two.
-
-\paragraph{(A) Self-play with a FIFO opponent pool and baseline mixing.}
-Vanilla DQN/PPO recipes assume a fixed environment with a stationary
-reward function. Slime Volleyball is competitive, so we instead train
-against a maintained pool of past selves --- the same scaffolding used at
-much larger scale by AlphaGo~\citep{silver2016alphago} and
-AlphaStar~\citep{vinyals2019alphastar}. Concretely, every
-$100\text{k}$ environment transitions, the current online network is
-\emph{snapshotted} (frozen state-dict copy) and pushed into a FIFO pool
-capped at $30$ snapshots. At every episode boundary, each parallel env
-draws an opponent independently: with probability
-$p_{\text{base}}$ from the scripted baseline,
-otherwise uniformly from the pool. The two-player API
-\texttt{env.step(a, otherAction=a\_opp)} lets us collect 16-way
-parallel rollouts where each worker can be playing a different
-opponent. Crucially, we found that $p_{\text{base}} = 0$ (pure pool)
-catastrophically loses generalization to the scripted baseline, even
-when the pool is seeded with the strongest available checkpoint
-(Section~\ref{sec:results}). This is methodologically important:
-``pool quality $>$ baseline quality'' is a tempting intuition that does
-not survive contact with the data.
-
-\paragraph{(B) PPO entropy-collapse rescue.}
-Our first long PPO run terminated at \texttt{base\_R}~$=-3.4$ (near
-sweep-loss) despite \texttt{pool\_R}~$\approx +1$. Diagnosis from
-TensorBoard logs: the policy entropy
-$\mathcal{H}[\pi]$ collapsed from $\approx \log 6 \approx 1.79$ to
-$0.108$ by step 1.4M (a 16$\times$ drop), at which point the policy was
-deterministic enough to win against snapshots of itself but wholly
-unable to handle the stylistically different scripted baseline. Our
-rescue intervention combined four changes: $c_e: 0.001 \to 0.01$
-(10$\times$ entropy bonus), rollout length
-$128 \to 256$ (better
-GAE estimates over the 3000-frame episodes), linear lr anneal $\to 0$
-across the run, and target-KL early stop with $\delta_{\mathrm{KL}}{=}0.02$.
-The rescue run finished at \texttt{base\_R}~$= +0.2$ with
-$\mathcal{H} = 1.42$ --- a $+3.6$ reward swing and a near-restoration
-of policy stochasticity. We present this as a worked example of
-production-style RL debugging: read the diagnostic scalars, identify
-the failure mode (here, premature commitment), and intervene with a
-small, justified config cluster rather than a hyperparameter sweep.
-
-\subsection{Hyperparameters}
-
-Table~\ref{tab:hp} lists the per-algorithm hyperparameters used in our
-runs, taken directly from the corresponding SLURM scripts in
-\texttt{scripts/}. All runs use 16 parallel \texttt{SubprocVecEnv}
-workers on a single A6000 GPU.
-
-\begin{table}[t]
-\centering
-\caption{Hyperparameters. ``DQN--cold'' is the 5M ablation budget; ``DQN-SP''
-is the 20M self-play budget; ``Rainbow-Lite'' is Dueling+Double+$n$-step+PER
-self-play; ``PPO-rescue'' is the post-fix entropy-stable run.}
-\label{tab:hp}
-\small
-\begin{tabular}{lcccc}
-\toprule
- & DQN--cold & DQN-SP & Rainbow-Lite & PPO-rescue \\
-\midrule
-Total transitions & 5M & 20M & 5M & 20M \\
-Parallel envs ($N$) & 16 & 16 & 16 & 16 \\
-Learning rate & $2.5{\times}10^{-4}$ & $5{\times}10^{-5}$ & $2.5{\times}10^{-4}$ & $3{\times}10^{-4}$ \\
-LR schedule & const & const & const & linear $\to 0$ \\
-$\gamma$ & 0.99 & 0.99 & 0.99 & 0.99 \\
-$n$-step & 3 (1 in cell C) & 3 & 3 & --- \\
-Batch size & 256 & 256 & 256 & --- \\
-Replay capacity & 200k & 200k & 200k & --- \\
-Train freq (per worker) & 4 & 4 & 4 & --- \\
-Target $\tau$ (Polyak) & 0.005 & 0.005 & 0.005 & --- \\
-$\epsilon$ schedule (start/end/frac) & 1.0/0.02/0.30 & 1.0/0.02/0.30 & 1.0/0.02/0.30 & --- \\
-Rollout length $T$ & --- & --- & --- & 256 \\
-Update epochs & --- & --- & --- & 4 \\
-Minibatch size & --- & --- & --- & 256 \\
-Clip $\epsilon$ (PPO) & --- & --- & --- & 0.2 \\
-GAE $\lambda$ & --- & --- & --- & 0.95 \\
-Entropy coef $c_e$ & --- & --- & --- & 0.01 \\
-Value coef $c_v$ & --- & --- & --- & 0.5 \\
-Target KL & --- & --- & --- & 0.02 \\
-Max grad norm & 10 & 10 & 10 & 0.5 \\
-Snapshot every (steps) & --- & 100k & 100k & 100k \\
-Pool max size & --- & 30 & 30 & 30 \\
-Baseline-opp prob & --- & 0.4 & 0.4 & 0.7 \\
-Eval cadence (steps) & 25k & 25k & 25k & 25k \\
-\bottomrule
-\end{tabular}
-\end{table}
+\paragraph{Beyond-class methodology.} \textbf{(A) Self-play with FIFO
+pool + baseline mixing.} Every 100k transitions the online net is
+snapshotted and pushed into a FIFO pool capped at 30 snapshots. At
+every episode boundary each parallel env independently draws an
+opponent: the scripted baseline w.p.~$p_{\mathrm{base}}$, otherwise
+uniformly from the pool --- the same scaffolding used at much larger
+scale by AlphaGo~\citep{silver2016alphago} and
+AlphaStar~\citep{vinyals2019alphastar}. We find
+$p_{\mathrm{base}}{=}0$ catastrophically loses generalization to the
+baseline even when the pool is seeded with the strongest checkpoint
+(Section~\ref{sec:results}); pool quality $>$ baseline quality is a
+tempting intuition that does not survive the data. \textbf{(B) PPO
+entropy-collapse rescue.} Our first long PPO run terminated at
+\texttt{base\_R}$=-3.4$ despite \texttt{pool\_R}$\approx +1$; entropy
+collapsed from $\approx\!\log 6\!\approx\!1.79$ to $0.108$ by step
+1.4M (a $16\times$ drop). The rescue cluster
+($c_e:0.001{\to}0.01$, rollout $128{\to}256$, linear LR anneal,
+target-KL stop) restored $\mathcal{H}=1.42$ and lifted
+\texttt{base\_R} to $+0.2$, a $+3.6$ swing.

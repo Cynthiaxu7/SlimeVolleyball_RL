@@ -1,3 +1,45 @@
+\section{Appendix: Hyperparameters}
+\label{app:hp}
+
+\begin{table}[h]
+\centering
+\caption{Hyperparameters. ``DQN--cold'' is the 5M ablation budget; ``DQN-SP''
+is the 20M self-play budget; ``Rainbow-Lite'' is Dueling+Double+$n$-step+PER
+self-play; ``PPO-rescue'' is the post-fix entropy-stable run.}
+\label{tab:hp}
+\small
+\begin{tabular}{lcccc}
+\toprule
+ & DQN--cold & DQN-SP & Rainbow-Lite & PPO-rescue \\
+\midrule
+Total transitions & 5M & 20M & 5M & 20M \\
+Parallel envs ($N$) & 16 & 16 & 16 & 16 \\
+Learning rate & $2.5{\times}10^{-4}$ & $5{\times}10^{-5}$ & $2.5{\times}10^{-4}$ & $3{\times}10^{-4}$ \\
+LR schedule & const & const & const & linear $\to 0$ \\
+$\gamma$ & 0.99 & 0.99 & 0.99 & 0.99 \\
+$n$-step & 3 (1 in cell C) & 3 & 3 & --- \\
+Batch size & 256 & 256 & 256 & --- \\
+Replay capacity & 200k & 200k & 200k & --- \\
+Train freq (per worker) & 4 & 4 & 4 & --- \\
+Target $\tau$ (Polyak) & 0.005 & 0.005 & 0.005 & --- \\
+$\epsilon$ schedule (start/end/frac) & 1.0/0.02/0.30 & 1.0/0.02/0.30 & 1.0/0.02/0.30 & --- \\
+Rollout length $T$ & --- & --- & --- & 256 \\
+Update epochs & --- & --- & --- & 4 \\
+Minibatch size & --- & --- & --- & 256 \\
+Clip $\epsilon$ (PPO) & --- & --- & --- & 0.2 \\
+GAE $\lambda$ & --- & --- & --- & 0.95 \\
+Entropy coef $c_e$ & --- & --- & --- & 0.01 \\
+Value coef $c_v$ & --- & --- & --- & 0.5 \\
+Target KL & --- & --- & --- & 0.02 \\
+Max grad norm & 10 & 10 & 10 & 0.5 \\
+Snapshot every (steps) & --- & 100k & 100k & 100k \\
+Pool max size & --- & 30 & 30 & 30 \\
+Baseline-opp prob & --- & 0.4 & 0.4 & 0.7 \\
+Eval cadence (steps) & 25k & 25k & 25k & 25k \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Appendix: Key Code Excerpts}
 \label{sec:appendix}
 

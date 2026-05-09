@@ -1,55 +1,30 @@
 \section{Introduction}
 
-Deep reinforcement learning (RL) has matured into a workbench for studying
-machine-learning methodology that does not appear in supervised pipelines:
-non-stationary data distributions, sparse credit assignment over thousands of
-time steps, and the tight coupling between exploration policy and the very
-data the model trains on. These properties make RL a uniquely useful
-pedagogical setting for a graduate deep-learning course --- the same
-optimizer, the same backbone, and the same loss family produce radically
-different outcomes once a policy is allowed to choose its own training data.
+Deep RL exposes methodology questions that supervised pipelines do not:
+non-stationary data, sparse credit assignment, and tight coupling
+between exploration and the data the model trains on. The same
+optimizer and loss family produce radically different outcomes once a
+policy is allowed to choose its own training data.
 
-We study these effects on \textbf{Slime Volleyball}~\citep{slimevolleygym}, a
-two-player continuous-physics game that compresses the methodology questions
-into a tractable form. The state is 12-dimensional (positions and velocities
-of agent, ball, and opponent), the action space is \textsc{Discrete}(6), and
-each episode lasts up to 3000 frames or until one side loses all five lives.
-The environment is small enough that a full ablation matrix fits in a
-weekend's GPU budget, and large enough that subtle algorithmic choices
-produce statistically meaningful differences. We benchmark every variant
-through (a) a deterministic-greedy reward against the scripted baseline and
-(b) a 1500-match round-robin Elo ladder against all other variants, and we
-deploy each trained policy as an ONNX model in a browser playable so that the
-ablation is reproducible end-to-end.
+We study these effects on \textbf{Slime
+Volleyball}~\citep{slimevolleygym}, a two-player physics game with a
+12-dim observation, $\textsc{Discrete}(6)$ actions, and episodes of up
+to 3000 frames. The environment is small enough that a full ablation
+matrix fits in a weekend's GPU budget and large enough that subtle
+algorithmic choices produce statistically meaningful differences. We
+benchmark every variant via (a) deterministic-greedy reward against the
+scripted baseline (\texttt{eval\_R}) and (b) a 1500-match round-robin
+Elo ladder over 19 trained variants, and we deploy each policy as an
+ONNX model in a browser playable for end-to-end reproducibility.
 
-Our contributions are:
-\begin{itemize}
-\item A clean $2\times2\times2$ ablation matrix over Dueling, Double DQN, and
-  $n$-step returns on a shared trunk (Section~\ref{sec:results}) that
-  isolates each Rainbow~\citep{hessel2018rainbow} component's
-  contribution and exposes a destructive interaction: $n$-step returns
-  \emph{without} Double DQN are worse than vanilla DQN.
-\item A self-play scaffold that combines a FIFO opponent
-  pool~\citep{silver2016alphago,vinyals2019alphastar} with a
-  baseline-mixing knob, plus an empirical demonstration that pure-pool
-  self-play \emph{underperforms} mixing the scripted baseline as an
-  occasional opponent.
-\item A PPO~\citep{schulman2017ppo} entropy-collapse case study with a
-  four-change rescue intervention (entropy coefficient $10\times$,
-  rollout length doubled, linear LR anneal, target-KL early stop) that
-  swings final reward by $+3.6$.
-\item An ``ecosystem effect'' finding: a long-standing $\times 10$ scale
-  bug in the in-pool baseline produced a lineage of trained agents that
-  dominate the public ladder (Elo $\sim$1800), and a correctly-trained
-  agent loses to them at $\sim$8:1 odds in head-to-head play.
-\item Browser-deployable ONNX exports of every variant (one shared
-  inference contract: 12-dim float input, six logits / Q-values out)
-  with $<10^{-5}$ max-abs verification against the PyTorch reference
-  forward pass.
-\end{itemize}
-
-The remainder of the paper formalizes the MDP (Section~\ref{sec:problem}),
-specifies architectures, losses, and self-play training
-(Section~\ref{sec:methods}), reports ablation results
-(Section~\ref{sec:results}), discusses safety and robustness implications
-(Section~\ref{sec:safety}), and concludes (Section~\ref{sec:conclusion}).
+\textbf{Contributions.} (1) A $2{\times}2{\times}2$ ablation over
+Dueling, Double, and $n$-step on a shared trunk that exposes a
+destructive interaction: $n$-step \emph{without} Double DQN is worse
+than vanilla DQN. (2) A self-play scaffold combining a FIFO opponent
+pool~\citep{silver2016alphago,vinyals2019alphastar} with baseline
+mixing, plus the empirical finding that pure-pool self-play
+\emph{underperforms} mixing the scripted baseline. (3) A PPO
+entropy-collapse case study with a four-change rescue ($+3.6$ reward
+swing). (4) An ``ecosystem effect'': a $\times 10$ obs-scale bug in the
+in-pool baseline produced a lineage of trained agents (Elo $\sim$1800)
+that beat a correctly-trained agent at $\sim$8:1 in head-to-head play.
