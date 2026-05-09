@@ -2,8 +2,8 @@
 html, body {
   margin: 0;
   padding: 0;
-  /* Columbia theme: deep navy backdrop with subtle Columbia-blue gradient. */
-  background: linear-gradient(180deg, #061325 0%, #0a1929 60%, #0f2238 100%);
+  /* Berkeley theme: deep Berkeley-blue backdrop fading to California-gold accent. */
+  background: linear-gradient(180deg, #001a33 0%, #002a52 55%, #003262 100%);
   background-attachment: fixed;
   color: #e6e8ef;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -21,11 +21,11 @@ h1 {
   color: #ffffff;
 }
 h1::before {
-  content: '♔ ';
-  color: #75AADB;  /* Columbia Blue crown */
+  content: '🐻 ';
+  color: #FDB515;  /* California Gold */
 }
 h1 .subtitle {
-  color: #75AADB;
+  color: #FDB515;
   font-weight: 500;
   font-size: 14px;
   letter-spacing: 1.2px;
@@ -159,9 +159,9 @@ canvas#qchart {
   font-size: 14px;
 }
 button {
-  /* Columbia Blue primary action color. */
-  background: #75AADB;
-  color: #061325;
+  /* California Gold primary action color on Berkeley Blue text. */
+  background: #FDB515;
+  color: #003262;
   border: none;
   padding: 8px 18px;
   border-radius: 4px;
@@ -169,7 +169,7 @@ button {
   font-weight: 600;
   cursor: pointer;
 }
-button:hover { background: #B9D9EB; }
+button:hover { background: #FFD773; }
 button:disabled { background: #2a3550; color: #6a7388; cursor: default; }
 
 #loading {

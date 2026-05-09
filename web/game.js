@@ -13,27 +13,35 @@
   function toY(y) { return CANVAS_H - y * FACTOR; }
   function toP(r) { return r * FACTOR; }
 
-  // Columbia University home court palette.
-  // Columbia Blue (#75AADB / #B9D9EB) is the school's signature color since
-  // 1852; pairs with white and a deep navy backdrop for arena feel. Slimes
-  // are blue (home) vs crimson (away) for instant left/right legibility.
-  const COLOR_BG          = '#0a1929';   // arena navy backdrop
-  const COLOR_GROUND      = '#75AADB';   // Columbia Blue court
+  // UC Berkeley home court palette (California Memorial Stadium feel).
+  // Berkeley Blue (#003262) + California Gold (#FDB515) are Cal's official
+  // colors; Founder's Rock (#3B7EA1) is the lighter secondary blue used
+  // here as the court surface against the deep navy backdrop. Home slimes
+  // wear Berkeley Blue + Gold; away slimes wear cardinal red.
+  const COLOR_BG          = '#001a33';   // arena Berkeley-blue backdrop
+  const COLOR_GROUND      = '#3B7EA1';   // Founder's Rock court
   const COLOR_GROUND_LINE = '#ffffff';   // court boundary lines
   const COLOR_FENCE       = '#ffffff';   // white net
   const COLOR_BALL        = '#fafafa';   // volleyball body (drawn with seams)
   const COLOR_BALL_SEAM   = '#1B3A6B';   // navy seam lines
-  const COLOR_LEFT        = '#3A7BD5';   // home: Columbia Blue (slightly deeper than court for contrast)
-  const COLOR_LEFT_TRIM   = '#FFFFFF';   // home jersey trim: white chest stripe + dome rim
-  const COLOR_RIGHT       = '#FDB515';   // away: California Gold (UC Berkeley Bears)
-  const COLOR_RIGHT_TRIM  = '#003262';   // away jersey trim: Berkeley Blue
+  const COLOR_LEFT        = '#003262';   // home: Berkeley Blue
+  const COLOR_LEFT_TRIM   = '#FDB515';   // home jersey trim: California Gold rim + chest stripe
+  const COLOR_RIGHT       = '#8C1515';   // away: cardinal red (visiting team)
+  const COLOR_RIGHT_TRIM  = '#FFFFFF';   // away jersey trim: white
   const COLOR_BENCH       = '#3A4554';   // stadium bench (warm concrete gray)
   const COLOR_BENCH_EDGE  = 'rgba(255,255,255,0.10)';  // top-edge highlight
   const COLOR_EYE_WHITE   = '#ffffff';
   const COLOR_EYE_PUPIL   = '#000000';
   const COLOR_LIFE        = '#FFD11A';   // gold accent
-  const COLOR_BRAND_TEXT  = 'rgba(255,255,255,0.18)';  // faded "COLUMBIA" wordmark
-  const COLOR_BRAND_CROWN = 'rgba(255,255,255,0.22)';  // king's crown silhouette
+  const COLOR_BRAND_TEXT  = 'rgba(253,181,21,0.22)';   // faded "BERKELEY" wordmark in California Gold
+  const COLOR_BRAND_CROWN = 'rgba(253,181,21,0.32)';   // faded Cal "C" monogram in California Gold
+
+  // Preload the UC Berkeley seal as a court decal. SVG loads async; we draw it
+  // only after `sealReady` flips true so the first few frames just skip it.
+  const sealImg = new Image();
+  let sealReady = false;
+  sealImg.onload = () => { sealReady = true; };
+  sealImg.src = 'Seal_of_UCB.svg';
 
   const canvas = document.getElementById('game');
   const ctx    = canvas.getContext('2d');
@@ -200,26 +208,27 @@
     keys.delete(e.key.toLowerCase());
   });
 
-  // Left / P1 controls: A/D move, W or Space jump (also arrow keys).
+  // Left / P1 controls: A/D move, W or Space jump.
   function getLeftHumanAction() {
-    // Left agent dir=-1. Forward (toward fence) = world +x = D / right key.
-    // Backward (away from fence) = world -x = A / left key.
-    const left  = keys.has('a') || keys.has('arrowleft');
-    const right = keys.has('d') || keys.has('arrowright');
-    const jump  = keys.has('w') || keys.has('arrowup') || keys.has(' ');
+    // Left agent dir=-1. Forward (toward fence) = world +x = D.
+    // Backward (away from fence) = world -x = A.
+    const left  = keys.has('a');
+    const right = keys.has('d');
+    const jump  = keys.has('w') || keys.has(' ');
     let forward = 0, backward = 0;
     if (right && !left) forward = 1;
     if (left && !right) backward = 1;
     return [forward, backward, jump ? 1 : 0];
   }
 
-  // Right / P2 controls (used when right slot is "Human"): J/L move, I jump.
+  // Right / P2 controls: arrow keys (←/→ move, ↑ jump). J/L/I and numpad
+  // 4/6/8 stay supported as alternates for two-handed solo play.
   function getRightHumanAction() {
-    // Right agent dir=+1. Forward (toward fence) = world -x = J / numpad4.
-    // Backward (away from fence) = world +x = L / numpad6.
-    const lkey = keys.has('j') || keys.has('4');
-    const rkey = keys.has('l') || keys.has('6');
-    const jump = keys.has('i') || keys.has('8') || keys.has('k');
+    // Right agent dir=+1. Forward (toward fence) = world -x = ArrowLeft / J.
+    // Backward (away from fence) = world +x = ArrowRight / L.
+    const lkey = keys.has('arrowleft')  || keys.has('j') || keys.has('4');
+    const rkey = keys.has('arrowright') || keys.has('l') || keys.has('6');
+    const jump = keys.has('arrowup')    || keys.has('i') || keys.has('8') || keys.has('k');
     let forward = 0, backward = 0;
     if (lkey && !rkey) forward = 1;
     if (rkey && !lkey) backward = 1;
@@ -1073,7 +1082,7 @@
     const w = toP(g.w);
     const yTop = toY(g.y + g.h / 2);
     const h = toP(g.h);
-    // Columbia-blue court with a thin white boundary line on top (the "service line").
+    // Founder's-Rock blue court with a thin white boundary line on top (the "service line").
     ctx.fillStyle = COLOR_GROUND;
     ctx.fillRect(x, yTop, w, h);
     ctx.fillStyle = COLOR_GROUND_LINE;
@@ -1082,7 +1091,7 @@
 
   // Pre-computed crowd: two banks of small slimes seated above the court
   // (the upper portion of the canvas, behind the wordmark). Left half is
-  // home (Columbia Blue), right half is away (Cal Gold). Positions are
+  // home (Berkeley Blue), right half is away (cardinal red). Positions are
   // generated once at module load via a seeded PRNG so the layout is stable
   // across frames; per-slime phase is used by drawCrowd for the bobbing
   // cheer animation.
@@ -1208,31 +1217,32 @@
     ctx.stroke();
   }
 
-  // Big faded Columbia wordmark + king's crown silhouette painted on the
-  // court between drawGround and drawFence — sits "behind" the play but in
-  // front of the surface, like sponsor branding on a real arena floor.
+  // Faded UC Berkeley seal + wordmark painted on the court between
+  // drawGround and drawFence — sits "behind" the play but in front of the
+  // surface, like sponsor branding on a real arena floor.
   function drawCourtBranding() {
     const cx = CANVAS_W / 2;
     const groundTopPx = toY(world.ground.y + world.ground.h / 2);
-    // King's crown silhouette ABOVE the court surface (in the lower part of
-    // the playable air) so slimes don't overdraw it. We center it horizontally
-    // and place it ~40% of the way down the canvas. Drawn as a chunky sans
-    // bold "♔" — that's the Unicode king-of-chess glyph; Columbia's actual
-    // king's crown is similar in silhouette and renders consistently across
-    // browsers without needing a custom SVG asset.
     ctx.save();
-    ctx.fillStyle = COLOR_BRAND_CROWN;
-    ctx.font = '700 110px ui-sans-serif, system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const crownY = groundTopPx - 110;
-    ctx.fillText('♔', cx, crownY);
-    // Stylized "COLUMBIA" wordmark beneath the crown, on the court.
+    // Seal decal high in the air column so slimes don't overdraw it.
+    if (sealReady) {
+      const sealSize = 150;
+      const sealCenterY = groundTopPx - 200;
+      ctx.globalAlpha = 0.32;
+      ctx.drawImage(
+        sealImg,
+        cx - sealSize / 2, sealCenterY - sealSize / 2,
+        sealSize, sealSize,
+      );
+      ctx.globalAlpha = 1.0;
+    }
+    // Wordmark hugs the court surface, beneath the seal.
+    const wordmarkY = groundTopPx - 90;
     ctx.fillStyle = COLOR_BRAND_TEXT;
-    ctx.font = '700 38px "Times New Roman", Georgia, serif';
-    ctx.fillText('COLUMBIA', cx, crownY + 80);
-    ctx.font = '600 14px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillText('LIONS — ROAR LIONS ROAR', cx, crownY + 108);
+    ctx.font = '700 32px "Times New Roman", Georgia, serif';
+    ctx.fillText('BERKELEY', cx, wordmarkY);
     ctx.restore();
   }
   function drawFence() {
@@ -1309,8 +1319,8 @@
     ctx.arc(cx, cy, r, Math.PI, 0, false);
     ctx.closePath();
     ctx.fill();
-    // Optional jersey trim (used by the away slime — Berkeley Blue accents
-    // on top of California Gold body, just like Cal Bears uniforms). Two
+    // Optional jersey trim (used by the home slime — California Gold accents
+    // on top of Berkeley Blue body, just like Cal Bears uniforms). Two
     // pieces: a thick rim outline + a horizontal mid-body stripe ("shoulder
     // band") which is the most readable jersey indicator at this scale.
     if (trim) {
